@@ -107,6 +107,22 @@ async function initDB() {
   `);
 
   db.run(`
+    CREATE TABLE IF NOT EXISTS wellness (
+      id            TEXT PRIMARY KEY,
+      patient_email TEXT NOT NULL,
+      date          TEXT NOT NULL,
+      appetite      TEXT NOT NULL DEFAULT 'normal',
+      strength      TEXT NOT NULL DEFAULT 'normal',
+      vomiting      TEXT NOT NULL DEFAULT 'no',
+      created_at    TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (patient_email) REFERENCES users(email)
+    );
+  `);
+
+  // Migration: add vomiting column if upgrading from older database
+  try { db.run("ALTER TABLE wellness ADD COLUMN vomiting TEXT NOT NULL DEFAULT 'no';"); } catch (e) { /* already exists */ }
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS instructions (
       id            TEXT PRIMARY KEY,
       patient_email TEXT NOT NULL,

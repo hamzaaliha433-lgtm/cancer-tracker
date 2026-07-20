@@ -84,6 +84,14 @@ router.get('/patients/:email/condition-profile', (req, res) => {
   res.json(row || { cancer_type: '', discovery_date: '', disease_status: 'ongoing' });
 });
 
+router.get('/patients/:email/wellness', (req, res) => {
+  const rows = query(
+    'SELECT * FROM wellness WHERE patient_email = ? ORDER BY date DESC',
+    [req.params.email.toLowerCase()]
+  );
+  res.json(rows);
+});
+
 router.get('/patients/:email/medications', (req, res) => {
   const rows = query(
     'SELECT * FROM medications WHERE patient_email = ? ORDER BY from_date DESC',

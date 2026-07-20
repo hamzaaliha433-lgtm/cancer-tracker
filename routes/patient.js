@@ -172,6 +172,64 @@ router.put('/condition-profile', patientOnly, (req, res) => {
 });
 
 // ═══════════════════════════════════════════════
+// WELLNESS (الشهية والقوة)  /api/patient/wellness
+// ═══════════════════════════════════════════════
+const VALID_APPETITE = ['normal', 'low'];
+const VALID_STRENGTH = ['normal', 'bad'];
+const VALID_VOMITING = ['yes', 'no'];
+
+router.get('/wellness', (req, res) => {
+  const rows = query(
+    'SELECT * FROM wellness WHERE patient_email = ? ORDER BY date DESC',
+    [req.user.email]
+  );
+  res.json(rows);
+});
+
+router.post('/wellness', patientOnly, (req, res) => {
+  const { date, appetite, strength, vomiting } = req.body;
+  if (!VALID_APPETITE.includes(appetite))
+    return res.status(400).json({ error: 'قيمة الشهية غير صالحة' });
+  if (!VALID_STRENGTH.includes(strength))
+    return res.status(400).json({ error: 'قيمة القوة غير صالحة' });
+  if (!VALID_VOMITING.includes(vomiting))
+    return res.status(400).json({ error: 'قيمة التقيؤ غير صالحة' });
+
+  const id = uid();
+  run(
+    'INSERT INTO wellness (id, patient_email, date, appetite, strength, vomiting) VALUES (?,?,?,?,?,?)',
+    [id, req.user.email, date || today(), appetite, strength, vomiting]
+  );
+  res.json(get('SELECT * FROM wellness WHERE id = ?', [id]));
+});
+
+router.put('/wellness/:id', patientOnly, (req, res) => {
+  const row = get('SELECT * FROM wellness WHERE id = ? AND patient_email = ?', [req.params.id, req.user.email]);
+  if (!row) return res.status(404).json({ error: 'السجل غير موجود' });
+
+  const { date, appetite, strength, vomiting } = req.body;
+  if (appetite !== undefined && !VALID_APPETITE.includes(appetite))
+    return res.status(400).json({ error: 'قيمة الشهية غير صالحة' });
+  if (strength !== undefined && !VALID_STRENGTH.includes(strength))
+    return res.status(400).json({ error: 'قيمة القوة غير صالحة' });
+  if (vomiting !== undefined && !VALID_VOMITING.includes(vomiting))
+    return res.status(400).json({ error: 'قيمة التقيؤ غير صالحة' });
+
+  run(
+    'UPDATE wellness SET date=?, appetite=?, strength=?, vomiting=? WHERE id=?',
+    [date ?? row.date, appetite ?? row.appetite, strength ?? row.strength, vomiting ?? row.vomiting, req.params.id]
+  );
+  res.json(get('SELECT * FROM wellness WHERE id = ?', [req.params.id]));
+});
+
+router.delete('/wellness/:id', patientOnly, (req, res) => {
+  const row = get('SELECT id FROM wellness WHERE id = ? AND patient_email = ?', [req.params.id, req.user.email]);
+  if (!row) return res.status(404).json({ error: 'السجل غير موجود' });
+  run('DELETE FROM wellness WHERE id = ?', [req.params.id]);
+  res.json({ success: true });
+});
+
+// ═══════════════════════════════════════════════
 // MEDICATIONS  /api/patient/medications
 // ═══════════════════════════════════════════════
 router.get('/medications', (req, res) => {
