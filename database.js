@@ -29,18 +29,21 @@ async function initDB() {
   // Create tables
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      email       TEXT    UNIQUE NOT NULL,
-      name        TEXT    NOT NULL,
-      phone       TEXT,
-      password    TEXT    NOT NULL,
-      role        TEXT    NOT NULL DEFAULT 'patient',
-      created_at  TEXT    DEFAULT (date('now'))
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      email                 TEXT    UNIQUE NOT NULL,
+      name                  TEXT    NOT NULL,
+      phone                 TEXT,
+      password              TEXT    NOT NULL,
+      role                  TEXT    NOT NULL DEFAULT 'patient',
+      assigned_doctor_email TEXT,
+      created_at            TEXT    DEFAULT (date('now'))
     );
   `);
 
   // Migration: add phone column if upgrading from older database
   try { db.run('ALTER TABLE users ADD COLUMN phone TEXT;'); } catch (e) { /* already exists */ }
+  // Migration: add doctor-assignment column if upgrading from older database
+  try { db.run('ALTER TABLE users ADD COLUMN assigned_doctor_email TEXT;'); } catch (e) { /* already exists */ }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS reports (
