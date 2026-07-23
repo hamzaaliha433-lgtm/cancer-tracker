@@ -288,4 +288,17 @@ router.get('/instructions', (req, res) => {
   res.json(rows);
 });
 
+// ═══════════════════════════════════════════════
+// MY DOCTOR  /api/patient/my-doctor
+// ═══════════════════════════════════════════════
+router.get('/my-doctor', (req, res) => {
+  const me = get('SELECT assigned_doctor_email FROM users WHERE email = ?', [req.user.email]);
+  if (!me || !me.assigned_doctor_email) return res.json(null);
+  const doctor = get(
+    "SELECT name, email FROM users WHERE email = ? AND role = 'doctor'",
+    [me.assigned_doctor_email]
+  );
+  res.json(doctor || null);
+});
+
 module.exports = router;
