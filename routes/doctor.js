@@ -69,7 +69,7 @@ router.get('/patients/:email', (req, res) => {
 
 router.get('/patients/:email/reports', (req, res) => {
   const rows = query(
-    'SELECT id, title, date, note, img FROM reports WHERE patient_email = ? ORDER BY date DESC',
+    'SELECT id, title, date, note, img, report_type FROM reports WHERE patient_email = ? ORDER BY date DESC',
     [req.params.email.toLowerCase()]
   );
   res.json(rows);
