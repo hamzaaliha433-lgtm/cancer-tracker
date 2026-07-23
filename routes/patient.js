@@ -16,6 +16,8 @@ function today() {
 // ═══════════════════════════════════════════════
 // REPORTS  /api/patient/reports
 // ═══════════════════════════════════════════════
+const VALID_REPORT_TYPES = ['pet_scan', 'mri', 'ct_scan', 'xray', 'lab_test', 'other'];
+
 router.get('/reports', (req, res) => {
   const rows = query(
     'SELECT * FROM reports WHERE patient_email = ? ORDER BY date DESC',
@@ -25,8 +27,10 @@ router.get('/reports', (req, res) => {
 });
 
 router.post('/reports', patientOnly, (req, res) => {
-  const { title, date, note, img } = req.body;
+  const { title, date, note, img, report_type } = req.body;
   if (!title) return res.status(400).json({ error: 'عنوان التقرير مطلوب' });
+
+  const type = report_type && VALID_REPORT_TYPES.includes(report_type) ? report_type : 'other';
 
   // Limit image size: 2MB base64 max
   if (img && img.length > 2 * 1024 * 1024 * 1.37) {
@@ -35,8 +39,8 @@ router.post('/reports', patientOnly, (req, res) => {
 
   const id = uid();
   run(
-    'INSERT INTO reports (id, patient_email, title, date, note, img) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, req.user.email, title, date || today(), note || '', img || null]
+    'INSERT INTO reports (id, patient_email, title, date, note, img, report_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, req.user.email, title, date || today(), note || '', img || null, type]
   );
   res.json(get('SELECT * FROM reports WHERE id = ?', [id]));
 });
@@ -45,10 +49,14 @@ router.put('/reports/:id', patientOnly, (req, res) => {
   const report = get('SELECT * FROM reports WHERE id = ? AND patient_email = ?', [req.params.id, req.user.email]);
   if (!report) return res.status(404).json({ error: 'التقرير غير موجود' });
 
-  const { title, date, note, img } = req.body;
+  const { title, date, note, img, report_type } = req.body;
+  const type = report_type !== undefined
+    ? (VALID_REPORT_TYPES.includes(report_type) ? report_type : report.report_type)
+    : report.report_type;
+
   run(
-    'UPDATE reports SET title=?, date=?, note=?, img=? WHERE id=?',
-    [title ?? report.title, date ?? report.date, note ?? report.note, img !== undefined ? img : report.img, req.params.id]
+    'UPDATE reports SET title=?, date=?, note=?, img=?, report_type=? WHERE id=?',
+    [title ?? report.title, date ?? report.date, note ?? report.note, img !== undefined ? img : report.img, type, req.params.id]
   );
   res.json(get('SELECT * FROM reports WHERE id = ?', [req.params.id]));
 });
