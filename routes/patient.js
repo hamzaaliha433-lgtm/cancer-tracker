@@ -301,4 +301,20 @@ router.get('/my-doctor', (req, res) => {
   res.json(doctor || null);
 });
 
+router.put('/my-doctor', (req, res) => {
+  const { doctor_email } = req.body;
+  if (!doctor_email)
+    return res.status(400).json({ error: 'الرجاء اختيار الطبيب' });
+
+  const doctor = get(
+    "SELECT email, name FROM users WHERE email = ? AND role = 'doctor'",
+    [doctor_email.toLowerCase()]
+  );
+  if (!doctor)
+    return res.status(400).json({ error: 'الطبيب المختار غير موجود — الرجاء الاختيار من القائمة' });
+
+  run('UPDATE users SET assigned_doctor_email = ? WHERE email = ?', [doctor.email, req.user.email]);
+  res.json(doctor);
+});
+
 module.exports = router;
