@@ -53,10 +53,14 @@ async function initDB() {
       date         TEXT NOT NULL,
       note         TEXT,
       img          TEXT,
+      report_type  TEXT DEFAULT 'other',
       created_at   TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (patient_email) REFERENCES users(email)
     );
   `);
+
+  // Migration: add report_type column if upgrading from older database
+  try { db.run("ALTER TABLE reports ADD COLUMN report_type TEXT DEFAULT 'other';"); } catch (e) { /* already exists */ }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS vitals (
