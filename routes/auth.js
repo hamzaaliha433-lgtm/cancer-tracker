@@ -2,7 +2,7 @@
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
-const { get, run } = require('../database');
+const { get, query, run } = require('../database');
 const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
@@ -15,10 +15,17 @@ function isValidPhone(phone) {
   return /^[0-9]{11}$/.test(phone.replace(/[\s\-]/g, ''));
 }
 
+// ─── GET /api/auth/doctors ──────────────────────────────────────────────────
+// قائمة عامة (بدون تسجيل دخول) بالأطباء المسجّلين، ليختار منها المريض عند التسجيل
+router.get('/doctors', (req, res) => {
+  const doctors = query("SELECT email, name FROM users WHERE role = 'doctor' ORDER BY name");
+  res.json(doctors);
+});
+
 // ─── POST /api/auth/register ───────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const { email, name, phone, password } = req.body;
+    const { email, name, phone, password, doctor_email } = req.body;
 
     if (!email || !name || !phone || !password)
       return res.status(400).json({ error: 'جميع الحقول مطلوبة (الاسم، البريد، الهاتف، كلمة المرور)' });
@@ -35,14 +42,26 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'البريد الإلكتروني مسجّل مسبقاً' });
 
     const role = DOCTOR_EMAILS.includes(email.toLowerCase()) ? 'doctor' : 'patient';
+
+    // المريض يجب أن يختار طبيباً موجوداً فعلاً من القائمة
+    let assignedDoctorEmail = null;
+    if (role === 'patient') {
+      if (!doctor_email)
+        return res.status(400).json({ error: 'الرجاء اختيار الطبيب المتابع لحالتك' });
+      const doctor = get("SELECT email FROM users WHERE email = ? AND role = 'doctor'", [doctor_email.toLowerCase()]);
+      if (!doctor)
+        return res.status(400).json({ error: 'الطبيب المختار غير موجود — الرجاء الاختيار من القائمة' });
+      assignedDoctorEmail = doctor.email;
+    }
+
     const hash = await bcrypt.hash(password, 12);
 
     run(
-      'INSERT INTO users (email, name, phone, password, role) VALUES (?, ?, ?, ?, ?)',
-      [email.toLowerCase(), name, cleanPhone, hash, role]
+      'INSERT INTO users (email, name, phone, password, role, assigned_doctor_email) VALUES (?, ?, ?, ?, ?, ?)',
+      [email.toLowerCase(), name, cleanPhone, hash, role, assignedDoctorEmail]
     );
 
-    const user = get('SELECT id, email, name, phone, role FROM users WHERE email = ?', [email.toLowerCase()]);
+    const user = get('SELECT id, email, name, phone, role, assigned_doctor_email FROM users WHERE email = ?', [email.toLowerCase()]);
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
       JWT_SECRET,
@@ -85,7 +104,7 @@ router.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: '30d' }
     );
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role } });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, assigned_doctor_email: user.assigned_doctor_email } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'خطأ في الخادم' });
@@ -95,7 +114,7 @@ router.post('/login', async (req, res) => {
 // ─── GET /api/auth/me ──────────────────────────────────────────────────────
 const { authMiddleware } = require('../middleware/auth');
 router.get('/me', authMiddleware, (req, res) => {
-  const fresh = get('SELECT id, email, name, phone, role FROM users WHERE email = ?', [req.user.email]);
+  const fresh = get('SELECT id, email, name, phone, role, assigned_doctor_email FROM users WHERE email = ?', [req.user.email]);
   res.json({ user: fresh || req.user });
 });
 
